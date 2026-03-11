@@ -577,8 +577,8 @@ export default function App() {
                      margin: 0,
                      color: activeTheme.textColor,
                      wordWrap: 'break-word',
+                     whiteSpace: 'pre-wrap',
                      letterSpacing: '-0.02em',
-                     textWrap: 'balance',
                      pointerEvents: 'none'
                   }}>
                     {content.title}
@@ -601,8 +601,8 @@ export default function App() {
                      color: activeTheme.textColor,
                      opacity: 0.85,
                      wordWrap: 'break-word',
-                     textWrap: 'pretty',
-                     maxWidth: '95%',
+                     whiteSpace: 'pre-wrap',
+                     maxWidth: '100%',
                      pointerEvents: 'none'
                   }}>
                     {content.description}
