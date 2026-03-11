@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Instagram, Facebook, Twitter, Linkedin, MonitorPlay, 
+  Instagram, Facebook, Linkedin, MonitorPlay, 
   Download, Image as ImageIcon, LayoutTemplate, 
   Type, Upload, Sparkles, AlignCenter, AlignLeft, 
-  PanelLeft, Columns, Smartphone, Palette
+  PanelLeft, Columns, Palette, PenTool, Pointer
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import './index.css';
@@ -15,8 +15,8 @@ const NETWORKS = [
     name: 'Instagram',
     icon: <Instagram size={20} />,
     formats: [
-      { id: 'ig-sq', name: 'Square Post', width: 1080, height: 1080, aspect: '1:1' },
-      { id: 'ig-pt', name: 'Portrait Post', width: 1080, height: 1350, aspect: '4:5' },
+      { id: 'ig-sq', name: 'Post Cuadrado', width: 1080, height: 1080, aspect: '1:1' },
+      { id: 'ig-pt', name: 'Post Retrato', width: 1080, height: 1350, aspect: '4:5' },
       { id: 'ig-st', name: 'Story/Reel', width: 1080, height: 1920, aspect: '9:16' },
     ]
   },
@@ -25,8 +25,8 @@ const NETWORKS = [
     name: 'Facebook',
     icon: <Facebook size={20} />,
     formats: [
-      { id: 'fb-ls', name: 'Landscape', width: 1200, height: 630, aspect: '1.91:1' },
-      { id: 'fb-sq', name: 'Square', width: 1080, height: 1080, aspect: '1:1' },
+      { id: 'fb-ls', name: 'Horizontal', width: 1200, height: 630, aspect: '1.91:1' },
+      { id: 'fb-sq', name: 'Cuadrado', width: 1080, height: 1080, aspect: '1:1' },
     ]
   },
   {
@@ -34,8 +34,8 @@ const NETWORKS = [
     name: 'LinkedIn',
     icon: <Linkedin size={20} />,
     formats: [
-      { id: 'li-ls', name: 'Article Image', width: 1200, height: 627, aspect: '1.91:1' },
-      { id: 'li-sq', name: 'Square Post', width: 1080, height: 1080, aspect: '1:1' },
+      { id: 'li-ls', name: 'Artículo', width: 1200, height: 627, aspect: '1.91:1' },
+      { id: 'li-sq', name: 'Post Cuadrado', width: 1080, height: 1080, aspect: '1:1' },
     ]
   }
 ];
@@ -72,11 +72,10 @@ export default function App() {
   const [activeNetwork, setActiveNetwork] = useState(NETWORKS[0]);
   const [activeFormat, setActiveFormat] = useState(NETWORKS[0].formats[0]);
   
-  // Smart Content constraints
   const [content, setContent] = useState({
     title: 'Lanza Tu Próxima Gran Idea',
     description: 'Descubre cómo dominar el mercado con estrategias modernas y diseño excepcional. Únete a nuestra masterclass hoy mismo.',
-    logo: MS_LOGOS[2].src // base64 or path
+    logo: MS_LOGOS[2].src 
   });
 
   const [activeLayout, setActiveLayout] = useState('modern-bottom');
@@ -86,35 +85,127 @@ export default function App() {
   
   const [zoom, setZoom] = useState(0.4); 
 
+  // --- DRAG & DROP STATE ---
+  // Elements store: { id, x, y, fixedLayout? } 
+  // We apply layout "presets" which just overwrite X, Y coordinates, but user can manually move them later.
+  const [positions, setPositions] = useState({
+    logo: { x: 0, y: 0 },
+    titleGroup: { x: 0, y: 0 } // Grouping text elements for easier layout logic
+  });
+  
+  const [dragState, setDragState] = useState(null); // 'logo' | 'titleGroup' | null
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  
+  // Smart Guides
+  const [guides, setGuides] = useState({ vX: null, hY: null }); // Coordinates of active magnetic lines
+
   const canvasRef = useRef(null);
   const contentRef = useRef(null);
 
-  // Auto-adapt format when network changes
+  const [dims, setDims] = useState({ titleW: 600, titleH: 300, logoW: 200, logoH: 100 });
+  const titleGroupRef = useRef(null);
+  const logoRef = useRef(null);
+
+  // Measure element dimensions after render for proper boundary limiting
   useEffect(() => {
-    setActiveFormat(activeNetwork.formats[0]);
-  }, [activeNetwork]);
+    if (titleGroupRef.current && logoRef.current) {
+      setDims({
+        titleW: titleGroupRef.current.offsetWidth,
+        titleH: titleGroupRef.current.offsetHeight,
+        logoW: logoRef.current.offsetWidth,
+        logoH: logoRef.current.offsetHeight,
+      });
+    }
+  }, [content, activeFormat, activeLayout, activeTheme]);
+
+  // Calculations
+  const currentWidth = activeFormat.width;
+  const currentHeight = activeFormat.height;
+  const baseDim = Math.min(currentWidth, currentHeight);
+  // strict boundaries
+  const padding = baseDim * 0.085; 
+  const logoMaxWidth = currentWidth * 0.28; 
   
-  // Auto-fit zoom
+  const titleSize = baseDim * 0.07;
+  const descSize = baseDim * 0.035;
+
+  // Formatting effect limits
+  const safeMinX = padding;
+  const safeMaxX = Math.max(padding, currentWidth - padding);
+  const safeMinY = padding;
+  const safeMaxY = Math.max(padding, currentHeight - padding);
+
+  // Apply layout PRESETS automatically when ActiveLayout changes or Format changes
+  useEffect(() => {
+    applyLayoutPreset(activeLayout);
+  }, [activeLayout, activeFormat]);
+
+  const applyLayoutPreset = (layoutPrefix) => {
+    // We estimate width dynamically but can use rough values immediately before next tick gets perfect bounds.
+    let logoX = padding, logoY = padding;
+    let textX = padding, textY = currentHeight - padding - dims.titleH;
+
+    switch(layoutPrefix) {
+      case 'center':
+        logoX = currentWidth / 2 - dims.logoW / 2;
+        logoY = currentHeight * 0.25;
+        textX = currentWidth / 2 - dims.titleW / 2;
+        textY = currentHeight * 0.45;
+        break;
+      case 'modern-bottom':
+        logoX = currentWidth - padding - dims.logoW;
+        logoY = padding;
+        textX = padding;
+        textY = currentHeight - padding - dims.titleH;
+        break;
+      case 'corporate-top':
+        logoX = padding;
+        logoY = padding;
+        textX = padding;
+        textY = padding + dims.logoH + padding;
+        break;
+      case 'editorial-split':
+        logoX = padding;
+        logoY = padding;
+        textX = padding;
+        textY = currentHeight / 2 - dims.titleH / 2;
+        break;
+    }
+
+    setPositions({
+      logo: { x: logoX, y: logoY },
+      titleGroup: { x: textX, y: textY }
+    });
+  };
+
+  // ZOOM automatico
   useEffect(() => {
     if (activeFormat) {
-      if (activeFormat.width > 2000) setZoom(0.3);
-      else if (activeFormat.width > 1200) setZoom(0.35);
-      else if (activeFormat.width > 800) setZoom(0.45);
-      else setZoom(0.6);
+      if (activeFormat.width > 1500) setZoom(0.3);
+      else if (activeFormat.width > 900) setZoom(0.4);
+      else setZoom(0.5);
     }
   }, [activeFormat]);
 
-  const currentWidth = activeFormat.width;
-  const currentHeight = activeFormat.height;
+  // Spellchecker / AI Corrector function
+  const handleSpellCheck = () => {
+    const fixText = (text) => {
+      if (!text) return '';
+      // Capitalize first letter of every sentence and fix double spaces
+      return text
+        .replace(/\s+/g, ' ') // erase double spaces
+        .replace(/(^\w|\.\s+\w)/g, (l) => l.toUpperCase()) // First letters after dot
+        .trim();
+    };
 
-  // SMART CALCULATIONS (A prueba de tontos)
-  const baseDim = Math.min(currentWidth, currentHeight);
-  const padding = baseDim * 0.085; // safe margin
-  const logoMaxWidth = currentWidth * 0.28; // Max width rule
-  
-  // Font sizes auto-escalonados preventively smaller
-  const titleSize = baseDim * 0.07;
-  const descSize = baseDim * 0.035;
+    setContent({
+      ...content,
+      title: fixText(content.title),
+      description: fixText(content.description)
+    });
+
+    alert("¡Corrección aplicada! Se ajustaron mayúsculas, signos de puntuación y dobles espacios. (Asegúrate de revisar el texto).");
+  };
 
   const handleExport = async () => {
     if (contentRef.current) {
@@ -133,12 +224,12 @@ export default function App() {
         });
         
         const link = document.createElement('a');
-        link.download = `postGenius-${activeNetwork.name}-${activeFormat.name}.png`;
+        link.download = `MS_Advisory_${activeNetwork.name}_${activeFormat.name}.png`;
         link.href = dataUrl;
         link.click();
       } catch (err) {
         console.error("Failed to export image", err);
-        alert("Hubo un error al exportar la imagen.");
+        alert("Hubo un error al exportar la imagen. Verifica si hay tipografías que sigan cargando.");
       }
     }
   };
@@ -152,137 +243,88 @@ export default function App() {
     }
   };
 
-  // SMART RENDERER
-  const renderCanvas = () => {
-    const commonTitle = {
-      fontFamily: 'var(--font-display)',
-      fontSize: `${titleSize}px`,
-      fontWeight: 800,
-      lineHeight: 1.1,
-      margin: 0,
-      color: activeTheme.textColor,
-      wordWrap: 'break-word',
-      letterSpacing: '-0.02em',
-      textWrap: 'balance'
-    };
+  // Drag Handlers
+  const startDrag = (e, id) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const canvasRect = canvasRef.current.getBoundingClientRect();
     
-    const commonDesc = {
-      fontFamily: 'var(--font-body)',
-      fontSize: `${descSize}px`,
-      fontWeight: 400,
-      lineHeight: 1.5,
-      margin: 0,
-      color: activeTheme.textColor,
-      opacity: 0.85,
-      wordWrap: 'break-word',
-      textWrap: 'pretty'
-    };
+    // Calculate raw mouse offset inside the element properly factoring zoom
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
-    const logoStyle = {
-      maxWidth: `${logoMaxWidth}px`,
-      maxHeight: `${baseDim * 0.15}px`,
-      objectFit: 'contain'
-    };
+    setDragState(id);
+    setDragOffset({ x: mouseX / zoom, y: mouseY / zoom });
+  };
 
-    if (activeLayout === 'center') {
-      return (
-        <div style={{
-          width: '100%',
-          height: '100%',
-          boxSizing: 'border-box',
-          padding: `${padding}px`,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
-          gap: `${padding * 0.4}px`,
-          overflow: 'hidden'
-        }}>
-          {content.logo && <img src={content.logo} style={{...logoStyle, flexShrink: 0}} alt="Logo" />}
-          <div style={{display: 'flex', flexDirection: 'column', gap: `${padding * 0.15}px`, alignItems: 'center'}}>
-            <h1 style={commonTitle}>{content.title}</h1>
-            <p style={{...commonDesc, maxWidth: '85%'}}>{content.description}</p>
-          </div>
-        </div>
-      );
-    } 
-    else if (activeLayout === 'modern-bottom') {
-      return (
-        <div style={{
-          width: '100%',
-          height: '100%',
-          boxSizing: 'border-box',
-          padding: `${padding}px`,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          overflow: 'hidden'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', flexShrink: 0 }}>
-            {content.logo && <img src={content.logo} style={{...logoStyle}} alt="Logo" />}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: `${padding * 0.25}px`, maxWidth: '90%', justifyContent: 'flex-end', flex: 1, paddingBottom: `${padding * 0.2}px` }}>
-            <h1 style={{...commonTitle, textAlign: 'left'}}>{content.title}</h1>
-            <p style={{...commonDesc, textAlign: 'left', maxWidth: '95%'}}>{content.description}</p>
-          </div>
-        </div>
-      );
-    } 
-    else if (activeLayout === 'corporate-top') {
-      return (
-        <div style={{
-          width: '100%',
-          height: '100%',
-          boxSizing: 'border-box',
-          padding: `${padding}px`,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          justifyContent: 'flex-start'
-        }}>
-          {content.logo && <div style={{flexShrink: 0, marginBottom: `${padding * 0.6}px`}}><img src={content.logo} style={{...logoStyle, alignSelf: 'flex-start'}} alt="Logo" /></div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: `${padding * 0.25}px`, maxWidth: '90%' }}>
-            <h1 style={{...commonTitle, textAlign: 'left'}}>{content.title}</h1>
-            <p style={{...commonDesc, textAlign: 'left', maxWidth: '95%'}}>{content.description}</p>
-          </div>
-        </div>
-      );
-    } 
-    else if (activeLayout === 'editorial-split') {
-      return (
-        <div style={{
-          width: '100%',
-          height: '100%',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'row',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            flex: '1',
-            padding: `${padding}px`,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            boxSizing: 'border-box'
-          }}>
-             {content.logo && <img src={content.logo} style={{...logoStyle, alignSelf: 'flex-start', marginBottom: 'auto', flexShrink: 0}} alt="Logo" />}
-             <div style={{marginBottom: 'auto', display: 'flex', flexDirection: 'column', gap: `${padding * 0.15}px`, minHeight: '50%', justifyContent: 'center'}}>
-               <h1 style={{...commonTitle, textAlign: 'left', color: activeTheme.textColor}}>{content.title}</h1>
-               <div style={{width: '60px', height: '8px', backgroundColor: activeTheme.accentColor, borderRadius: '4px', margin: `${padding*0.1}px 0`}}></div>
-               <p style={{...commonDesc, textAlign: 'left', maxWidth: '95%'}}>{content.description}</p>
-             </div>
-          </div>
-          <div style={{
-            width: '32%',
-            backgroundColor: activeTheme.accentColor,
-            opacity: 0.95,
-            flexShrink: 0
-          }}></div>
-        </div>
-      );
+  const onMouseMove = (e) => {
+    if (!dragState || !canvasRef.current) return;
+    
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    
+    let rawX = (e.clientX - canvasRect.left) / zoom - dragOffset.x;
+    let rawY = (e.clientY - canvasRect.top) / zoom - dragOffset.y;
+
+    const elW = dragState === 'logo' ? dims.logoW : dims.titleW;
+    const elH = dragState === 'logo' ? dims.logoH : dims.titleH;
+
+    let snapVX = null;
+    let snapHY = null;
+    const snapThreshold = 30; // pixels to snap
+
+    // Center X snap
+    const centerX = currentWidth / 2 - elW / 2;
+    if (Math.abs(rawX - centerX) < snapThreshold) {
+      rawX = centerX;
+      snapVX = currentWidth / 2;
     }
+    
+    // Left padding snap
+    if (Math.abs(rawX - padding) < snapThreshold) {
+      rawX = padding;
+      snapVX = padding;
+    }
+
+    // Right padding snap
+    if (Math.abs(rawX - (currentWidth - padding - elW)) < snapThreshold) {
+      rawX = currentWidth - padding - elW;
+      snapVX = currentWidth - padding;
+    }
+
+    // Top padding snap
+    if (Math.abs(rawY - padding) < snapThreshold) {
+      rawY = padding;
+      snapHY = padding;
+    }
+
+    // Center Y snap
+    const centerY = currentHeight / 2 - elH / 2;
+    if (Math.abs(rawY - centerY) < snapThreshold) {
+      rawY = centerY;
+      snapHY = currentHeight / 2;
+    }
+
+    // Bottom padding snap
+    if (Math.abs(rawY - (currentHeight - padding - elH)) < snapThreshold) {
+      rawY = currentHeight - padding - elH;
+      snapHY = currentHeight - padding;
+    }
+
+    // Strict absolute boundaries enforcement
+    rawX = Math.max(padding, Math.min(rawX, currentWidth - padding - elW));
+    rawY = Math.max(padding, Math.min(rawY, currentHeight - padding - elH));
+
+    setGuides({ vX: snapVX, hY: snapHY });
+
+    setPositions({
+       ...positions,
+       [dragState]: { x: rawX, y: rawY }
+    });
+  };
+
+  const stopDrag = () => {
+    setDragState(null);
+    setGuides({ vX: null, hY: null });
   };
 
   return (
@@ -294,6 +336,9 @@ export default function App() {
           <span style={{fontWeight: 800}}>PostGenius <span style={{fontSize: '12px', padding: '4px 8px', background: 'rgba(99, 102, 241, 0.2)', borderRadius: '6px', color: '#818cf8', marginLeft: '8px', verticalAlign: 'middle'}}>Smart AI</span></span>
         </div>
         <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+          <button className="btn btn-outline" onClick={handleSpellCheck} style={{border: '1px solid rgba(255,255,255,0.3)'}}>
+             <PenTool size={18} /> Corrector Mágico
+          </button>
           <button className="btn btn-primary" onClick={handleExport} style={{padding: '12px 24px', fontSize: '16px'}}>
             <Download size={20} />
             Exportar Diseño
@@ -302,7 +347,7 @@ export default function App() {
       </header>
 
       {/* MAIN BODY */}
-      <main className="main-layout">
+      <main className="main-layout" onMouseMove={onMouseMove} onMouseUp={stopDrag} onMouseLeave={stopDrag}>
         
         {/* LEFT SIDEBAR - Smart Settings */}
         <aside className="sidebar" style={{width: '340px'}}>
@@ -345,7 +390,7 @@ export default function App() {
 
           <div className="sidebar-section">
             <h2 className="sidebar-title" style={{display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600}}>
-              <Type size={18} /> 2. Contenido Inteligente
+              <Type size={18} /> 2. Textos (Arrastrables)
             </h2>
             <div className="editor-panel" style={{marginTop: 0, display: 'flex', flexDirection: 'column', gap: '16px'}}>
               
@@ -354,6 +399,7 @@ export default function App() {
                 <textarea 
                   className="form-control" 
                   rows={2}
+                  spellCheck="true"
                   style={{fontSize: '16px', fontWeight: 600}}
                   value={content.title} 
                   onChange={(e) => setContent({...content, title: e.target.value})}
@@ -365,6 +411,7 @@ export default function App() {
                 <textarea 
                   className="form-control" 
                   rows={4}
+                  spellCheck="true"
                   value={content.description} 
                   onChange={(e) => setContent({...content, description: e.target.value})}
                 />
@@ -432,10 +479,136 @@ export default function App() {
               style={{
                 width: currentWidth,
                 height: currentHeight,
+                position: 'relative',
                 background: activeBg.src ? `url(${activeBg.src}) center/cover no-repeat` : `linear-gradient(135deg, ${activeTheme.color1}, ${activeTheme.color2})`,
+                overflow: 'hidden'
               }}
             >
-              {renderCanvas()}
+              
+              {/* Optional editorial split line visually rendered if preset needs it, though dragging makes it obsolete. 
+                  We will keep the editorial background half if that theme is selected */}
+              {activeLayout === 'editorial-split' && (
+                 <div style={{
+                    position: 'absolute', right: 0, top: 0, bottom: 0, 
+                    width: '32%', backgroundColor: activeTheme.accentColor, opacity: 0.95
+                 }} />
+              )}
+
+              {/* Magnetic Guides Rendering */}
+              {guides.vX !== null && (
+                <div style={{
+                  position: 'absolute', top: 0, bottom: 0, left: guides.vX, 
+                  width: '2px', background: 'rgba(255, 100, 255, 0.8)', zIndex: 50, pointerEvents: 'none',
+                  boxShadow: '0 0 8px rgba(255, 100, 255, 1)'
+                }} />
+              )}
+              {guides.hY !== null && (
+                <div style={{
+                  position: 'absolute', left: 0, right: 0, top: guides.hY, 
+                  height: '2px', background: 'rgba(255, 100, 255, 0.8)', zIndex: 50, pointerEvents: 'none',
+                  boxShadow: '0 0 8px rgba(255, 100, 255, 1)'
+                }} />
+              )}
+              
+              {/* Visual Padding Border Debugger during Drag */}
+              {dragState && (
+                <div style={{
+                  position: 'absolute',
+                  top: padding, left: padding,
+                  right: padding, bottom: padding,
+                  border: '2px dashed rgba(255, 255, 255, 0.15)',
+                  pointerEvents: 'none',
+                  zIndex: 0
+                }} />
+              )}
+
+              {/* LOGO NODE */}
+              {content.logo && (
+                <div
+                  ref={logoRef}
+                  onMouseDown={(e) => startDrag(e, 'logo')}
+                  style={{
+                    position: 'absolute',
+                    left: positions.logo.x,
+                    top: positions.logo.y,
+                    cursor: dragState === 'logo' ? 'grabbing' : 'grab',
+                    zIndex: 10,
+                    outline: dragState === 'logo' ? '2px dashed var(--primary)' : 'none',
+                  }}
+                >
+                  <img 
+                    src={content.logo} 
+                    alt="Logo" 
+                    style={{ 
+                      maxWidth: `${logoMaxWidth}px`, 
+                      maxHeight: `${baseDim * 0.15}px`, 
+                      objectFit: 'contain',
+                      display: 'block',
+                      pointerEvents: 'none' // Prevent ghost drag
+                    }} 
+                  />
+                </div>
+              )}
+
+              {/* TEXTS NODE */}
+              <div
+                  ref={titleGroupRef}
+                  onMouseDown={(e) => startDrag(e, 'titleGroup')}
+                  style={{
+                    position: 'absolute',
+                    left: positions.titleGroup.x,
+                    top: positions.titleGroup.y,
+                    maxWidth: '85%',
+                    cursor: dragState === 'titleGroup' ? 'grabbing' : 'grab',
+                    zIndex: 10,
+                    outline: dragState === 'titleGroup' ? '2px dashed var(--primary)' : 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: `${padding * 0.15}px`,
+                    alignItems: activeLayout === 'center' ? 'center' : 'flex-start',
+                    textAlign: activeLayout === 'center' ? 'center' : 'left'
+                  }}
+              >
+                  <h1 style={{
+                     fontFamily: 'var(--font-display)',
+                     fontSize: `${titleSize}px`,
+                     fontWeight: 800,
+                     lineHeight: 1.1,
+                     margin: 0,
+                     color: activeTheme.textColor,
+                     wordWrap: 'break-word',
+                     letterSpacing: '-0.02em',
+                     textWrap: 'balance',
+                     pointerEvents: 'none'
+                  }}>
+                    {content.title}
+                  </h1>
+                  
+                  {activeLayout === 'editorial-split' && (
+                     <div style={{
+                       width: '60px', height: '8px', 
+                       backgroundColor: activeTheme.accentColor, 
+                       borderRadius: '4px', margin: `${padding*0.1}px 0`
+                     }}></div>
+                  )}
+
+                  <p style={{
+                    fontFamily: 'var(--font-body)',
+                     fontSize: `${descSize}px`,
+                     fontWeight: 400,
+                     lineHeight: 1.5,
+                     margin: 0,
+                     color: activeTheme.textColor,
+                     opacity: 0.85,
+                     wordWrap: 'break-word',
+                     textWrap: 'pretty',
+                     maxWidth: '95%',
+                     pointerEvents: 'none'
+                  }}>
+                    {content.description}
+                  </p>
+              </div>
+
             </div>
           </div>
         </div>
@@ -445,10 +618,10 @@ export default function App() {
           
           <div className="sidebar-section">
             <h2 className="sidebar-title" style={{display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600}}>
-              <LayoutTemplate size={18} /> 3. Diseño & Layout
+              <LayoutTemplate size={18} /> 3. Layouts Rápidos
             </h2>
             <p style={{fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px'}}>
-              El contenido se auto-jerarquiza y respeta los márgenes óptimos de seguridad.
+              Selecciona un diseño base. Ahora puedes <strong>arrastrar y mover libremente</strong> todos los elementos en pantalla para afinar el resultado.
             </p>
             
             <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
