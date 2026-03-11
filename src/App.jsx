@@ -462,16 +462,18 @@ export default function App() {
             <button className="btn-ghost" onClick={() => setZoom(Math.min(2, zoom + 0.1))}>+</button>
           </div>
 
-          <div 
-            className="post-canvas-wrapper" 
-            ref={canvasRef}
-            style={{ 
-              width: currentWidth, 
-              height: currentHeight,
-              transform: `scale(${zoom})`,
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)'
-            }}
-          >
+          <div style={{ width: currentWidth * zoom, height: currentHeight * zoom, position: 'relative' }}>
+            <div 
+              className="post-canvas-wrapper" 
+              ref={canvasRef}
+              style={{ 
+                width: currentWidth, 
+                height: currentHeight,
+                transform: `scale(${zoom})`,
+                transformOrigin: 'top left',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)'
+              }}
+            >
             {/* The actual exportable content container */}
             <div 
               className="post-canvas"
@@ -608,9 +610,9 @@ export default function App() {
                     {content.description}
                   </p>
               </div>
-
             </div>
           </div>
+        </div>
         </div>
 
         {/* RIGHT SIDEBAR - Aesthetics */}
