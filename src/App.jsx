@@ -83,6 +83,9 @@ export default function App() {
   const [activeBg, setActiveBg] = useState(MS_BACKGROUNDS[0]);
   const [activeLogoId, setActiveLogoId] = useState('ms-col-1');
   
+  const [logoScale, setLogoScale] = useState(15);
+  const [logoColor, setLogoColor] = useState('original');
+  
   const [zoom, setZoom] = useState(0.4); 
 
   // --- DRAG & DROP STATE ---
@@ -116,7 +119,7 @@ export default function App() {
         logoH: logoRef.current.offsetHeight,
       });
     }
-  }, [content, activeFormat, activeLayout, activeTheme]);
+  }, [content, activeFormat, activeLayout, activeTheme, logoScale]);
 
   // Calculations
   const currentWidth = activeFormat.width;
@@ -124,7 +127,7 @@ export default function App() {
   const baseDim = Math.min(currentWidth, currentHeight);
   // strict boundaries
   const padding = baseDim * 0.085; 
-  const logoMaxWidth = currentWidth * 0.28; 
+  const logoMaxWidth = currentWidth * (logoScale / 100); 
   
   const titleSize = baseDim * 0.07;
   const descSize = baseDim * 0.035;
@@ -450,6 +453,33 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="input-group" style={{marginBottom: 0}}>
+                <label className="input-label" style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                  <span>Tamaño del Logo ({logoScale}%)</span>
+                </label>
+                <input 
+                  type="range" 
+                  min="5" max="30" step="1"
+                  value={logoScale} 
+                  onChange={(e) => setLogoScale(Number(e.target.value))} 
+                  style={{width: '100%', cursor: 'pointer', accentColor: 'var(--primary)'}} 
+                />
+              </div>
+
+              <div className="input-group" style={{marginBottom: 0}}>
+                <label className="input-label">Color del Logo</label>
+                <select 
+                  className="form-control"
+                  value={logoColor}
+                  onChange={(e) => setLogoColor(e.target.value)}
+                >
+                  <option value="original">Color Original</option>
+                  <option value="#ffffff">Blanco Puro</option>
+                  <option value="#000000">Negro Puro</option>
+                  <option value={activeTheme.accentColor}>Acento (Tema)</option>
+                </select>
+              </div>
+
             </div>
           </div>
         </aside>
@@ -536,30 +566,45 @@ export default function App() {
                     cursor: dragState === 'logo' ? 'grabbing' : 'grab',
                     zIndex: 10,
                     outline: dragState === 'logo' ? '2px dashed var(--primary)' : 'none',
+                    width: `${logoMaxWidth}px`
                   }}
                 >
-                  <img 
-                    src={content.logo} 
-                    alt="Logo" 
-                    onLoad={(e) => {
-                      if (logoRef.current) {
-                        setDims(prev => ({
-                          ...prev,
-                          logoW: logoRef.current.offsetWidth,
-                          logoH: logoRef.current.offsetHeight
-                        }));
-                      }
-                    }}
-                    style={{ 
-                      maxWidth: `${logoMaxWidth}px`, 
-                      maxHeight: `${baseDim * 0.15}px`, 
-                      width: '100%',
-                      height: 'auto',
-                      objectFit: 'contain',
-                      display: 'block',
-                      pointerEvents: 'none' // Prevent ghost drag
-                    }} 
-                  />
+                  <div style={{ position: 'relative', width: '100%', height: '100%', pointerEvents: 'none' }}>
+                    <img 
+                      src={content.logo} 
+                      alt="Logo" 
+                      onLoad={(e) => {
+                        if (logoRef.current) {
+                          setDims(prev => ({
+                            ...prev,
+                            logoW: logoRef.current.offsetWidth,
+                            logoH: logoRef.current.offsetHeight
+                          }));
+                        }
+                      }}
+                      style={{ 
+                        width: '100%',
+                        height: 'auto',
+                        objectFit: 'contain',
+                        display: 'block',
+                        opacity: logoColor === 'original' ? 1 : 0
+                      }} 
+                    />
+                    {logoColor !== 'original' && (
+                      <div style={{
+                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: logoColor,
+                        WebkitMaskImage: `url("${content.logo}")`,
+                        WebkitMaskSize: 'contain',
+                        WebkitMaskRepeat: 'no-repeat',
+                        WebkitMaskPosition: 'center',
+                        maskImage: `url("${content.logo}")`,
+                        maskSize: 'contain',
+                        maskRepeat: 'no-repeat',
+                        maskPosition: 'center'
+                      }} />
+                    )}
+                  </div>
                 </div>
               )}
 
