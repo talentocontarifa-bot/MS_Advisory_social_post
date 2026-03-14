@@ -517,6 +517,16 @@ export default function App() {
               }}
             >
               
+              {/* Image Overlay Filter to Make Text Pop */}
+              {activeBg.src && (
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: 'rgba(20, 15, 35, 0.55)', // Dark premium overlay
+                  pointerEvents: 'none',
+                  zIndex: 0
+                }} />
+              )}
+              
               {/* Optional editorial split line visually rendered if preset needs it, though dragging makes it obsolete. 
                   We will keep the editorial background half if that theme is selected */}
               {activeLayout === 'editorial-split' && (
@@ -714,6 +724,18 @@ export default function App() {
                   {bg.label}
                 </button>
               ))}
+              
+              <label className={`btn ${activeBg.id === 'custom' ? 'btn-primary' : 'btn-outline'}`} style={{justifyContent: 'flex-start', padding: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center'}}>
+                <Upload size={16} style={{marginRight: '8px'}} /> Subir Imagen Custom
+                <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => setActiveBg({ id: 'custom', label: 'Fondo Custom', src: event.target.result });
+                    reader.readAsDataURL(file);
+                  }
+                }} />
+              </label>
             </div>
 
             <h2 className="sidebar-title" style={{display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600}}>
