@@ -87,6 +87,7 @@ export default function App() {
   const [logoScale, setLogoScale] = useState(15);
   const [logoColor, setLogoColor] = useState('original');
   const [signatureScale, setSignatureScale] = useState(15);
+  const [signatureColor, setSignatureColor] = useState('original');
   
   const [zoom, setZoom] = useState(0.4); 
 
@@ -115,15 +116,32 @@ export default function App() {
 
   // Measure element dimensions after render for proper boundary limiting
   useEffect(() => {
-    if (titleGroupRef.current && logoRef.current) {
-      setDims({
-        titleW: titleGroupRef.current.offsetWidth,
-        titleH: titleGroupRef.current.offsetHeight,
-        logoW: logoRef.current.offsetWidth,
-        logoH: logoRef.current.offsetHeight,
-      });
-    }
-  }, [content, activeFormat, activeLayout, activeTheme, logoScale]);
+    setDims(prevDims => {
+      let changed = false;
+      const newDims = { ...prevDims };
+      
+      if (titleGroupRef.current) {
+        if (newDims.titleW !== titleGroupRef.current.offsetWidth) changed = true;
+        if (newDims.titleH !== titleGroupRef.current.offsetHeight) changed = true;
+        newDims.titleW = titleGroupRef.current.offsetWidth;
+        newDims.titleH = titleGroupRef.current.offsetHeight;
+      }
+      if (logoRef.current) {
+        if (newDims.logoW !== logoRef.current.offsetWidth) changed = true;
+        if (newDims.logoH !== logoRef.current.offsetHeight) changed = true;
+        newDims.logoW = logoRef.current.offsetWidth;
+        newDims.logoH = logoRef.current.offsetHeight;
+      }
+      if (signatureRef.current) {
+        if (newDims.signatureW !== signatureRef.current.offsetWidth) changed = true;
+        if (newDims.signatureH !== signatureRef.current.offsetHeight) changed = true;
+        newDims.signatureW = signatureRef.current.offsetWidth;
+        newDims.signatureH = signatureRef.current.offsetHeight;
+      }
+      
+      return changed ? newDims : prevDims;
+    });
+  }, [content, activeFormat, activeLayout, activeTheme, logoScale, signatureScale]);
 
   // Calculations
   const currentWidth = activeFormat.width;
@@ -517,18 +535,34 @@ export default function App() {
               </div>
 
               {content.signature && (
-                <div className="input-group" style={{marginBottom: 0}}>
-                  <label className="input-label" style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
-                    <span>Tamaño de la Firma ({signatureScale}%)</span>
-                  </label>
-                  <input 
-                    type="range" 
-                    min="10" max="40" step="1"
-                    value={signatureScale} 
-                    onChange={(e) => setSignatureScale(Number(e.target.value))} 
-                    style={{width: '100%', cursor: 'pointer', accentColor: 'var(--primary)'}} 
-                  />
-                </div>
+                <>
+                  <div className="input-group" style={{marginBottom: 0}}>
+                    <label className="input-label" style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                      <span>Tamaño de la Firma ({signatureScale}%)</span>
+                    </label>
+                    <input 
+                      type="range" 
+                      min="10" max="40" step="1"
+                      value={signatureScale} 
+                      onChange={(e) => setSignatureScale(Number(e.target.value))} 
+                      style={{width: '100%', cursor: 'pointer', accentColor: 'var(--primary)'}} 
+                    />
+                  </div>
+                  
+                  <div className="input-group" style={{marginBottom: 0, marginTop: '16px'}}>
+                    <label className="input-label">Color de la Firma</label>
+                    <select 
+                      className="form-control"
+                      value={signatureColor}
+                      onChange={(e) => setSignatureColor(e.target.value)}
+                    >
+                      <option value="original">Color Original</option>
+                      <option value="#ffffff">Blanco Puro</option>
+                      <option value="#000000">Negro Puro</option>
+                      <option value={activeTheme.accentColor}>Acento (Tema)</option>
+                    </select>
+                  </div>
+                </>
               )}
 
             </div>
@@ -684,26 +718,42 @@ export default function App() {
                     width: `${signatureMaxWidth}px`
                   }}
                 >
-                  <img 
-                    src={content.signature} 
-                    alt="Firma" 
-                    onLoad={(e) => {
-                      if (signatureRef.current) {
-                        setDims(prev => ({
-                          ...prev,
-                          signatureW: signatureRef.current.offsetWidth,
-                          signatureH: signatureRef.current.offsetHeight
-                        }));
-                      }
-                    }}
-                    style={{ 
-                      width: '100%',
-                      height: 'auto',
-                      objectFit: 'contain',
-                      display: 'block',
-                      pointerEvents: 'none'
-                    }} 
-                  />
+                  <div style={{ position: 'relative', width: '100%', height: '100%', pointerEvents: 'none' }}>
+                    <img 
+                      src={content.signature} 
+                      alt="Firma" 
+                      onLoad={(e) => {
+                        if (signatureRef.current) {
+                          setDims(prev => ({
+                            ...prev,
+                            signatureW: signatureRef.current.offsetWidth,
+                            signatureH: signatureRef.current.offsetHeight
+                          }));
+                        }
+                      }}
+                      style={{ 
+                        width: '100%',
+                        height: 'auto',
+                        objectFit: 'contain',
+                        display: 'block',
+                        opacity: signatureColor === 'original' ? 1 : 0
+                      }} 
+                    />
+                    {signatureColor !== 'original' && (
+                      <div style={{
+                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: signatureColor,
+                        WebkitMaskImage: `url("${content.signature}")`,
+                        WebkitMaskSize: 'contain',
+                        WebkitMaskRepeat: 'no-repeat',
+                        WebkitMaskPosition: 'center',
+                        maskImage: `url("${content.signature}")`,
+                        maskSize: 'contain',
+                        maskRepeat: 'no-repeat',
+                        maskPosition: 'center'
+                      }} />
+                    )}
+                  </div>
                 </div>
               )}
 
