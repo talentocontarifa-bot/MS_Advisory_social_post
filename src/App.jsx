@@ -41,11 +41,11 @@ const NETWORKS = [
 ];
 
 const PRESET_THEMES = [
-  { id: 'ms-dark-purple', name: 'Morado MS', color1: '#2b1540', color2: '#3a205a', textColor: '#ffffff', accentColor: '#d2baf3' },
-  { id: 'ms-navy', name: 'Navy MS', color1: '#1e2533', color2: '#2b3547', textColor: '#ffffff', accentColor: '#8f7bb0' },
-  { id: 'ms-light-lavender', name: 'Lavanda Claro', color1: '#e8def7', color2: '#cdb1ee', textColor: '#2b1540', accentColor: '#8f7bb0' },
-  { id: 'ms-denim', name: 'Azul MS', color1: '#54667a', color2: '#6b7f94', textColor: '#ffffff', accentColor: '#d2baf3' },
-  { id: 'ms-white', name: 'Blanco Limpio', color1: '#ffffff', color2: '#f0f0f5', textColor: '#1e2533', accentColor: '#2b1540' }
+  { id: 'ms-solid-purple', name: 'Morado Oscuro', color1: '#3B1E54', color2: '#3B1E54', textColor: '#ffffff', accentColor: '#E1B26E' },
+  { id: 'ms-solid-lavender', name: 'Lavanda Clara', color1: '#9B7EBD', color2: '#9B7EBD', textColor: '#3B1E54', accentColor: '#3B1E54' },
+  { id: 'ms-solid-slate', name: 'Gris Pizarra', color1: '#64748B', color2: '#64748B', textColor: '#ffffff', accentColor: '#9B7EBD' },
+  { id: 'ms-grad-emerald', name: 'Morado a Esmeralda', color1: '#3B1E54', color2: '#006052', textColor: '#ffffff', accentColor: '#E1B26E' },
+  { id: 'ms-grad-gold', name: 'Morado a Dorado', color1: '#3B1E54', color2: '#E1B26E', textColor: '#ffffff', accentColor: '#9B7EBD' }
 ];
 
 const MS_LOGOS = [
