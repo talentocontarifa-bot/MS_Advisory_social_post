@@ -247,7 +247,9 @@ export default function App() {
         }
       `;
 
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + import.meta.env.VITE_GEMINI_API_KEY, {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyCe15PgaJPMG-vMXLAwvVQ5PjBV3Gs-av8';
+
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -256,6 +258,15 @@ export default function App() {
       });
 
       const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message || "Error devuelto por la API de Gemini.");
+      }
+
+      if (!data.candidates || data.candidates.length === 0) {
+         throw new Error("No se pudo generar una respuesta válida de la IA.");
+      }
+
       const textResponse = data.candidates[0].content.parts[0].text;
       
       // Clean up markdown markers if any
@@ -269,8 +280,8 @@ export default function App() {
       });
       
     } catch (err) {
-      console.error(err);
-      alert("Hubo un error contactando a la IA. Verifica que tu LLM API Key (VITE_GEMINI_API_KEY) esté bien configurada en .env");
+      console.error("Error en Redactor IA:", err);
+      alert(`Hubo un error contactando a la IA: ${err.message}`);
     } finally {
       setIsGenerating(false);
     }
