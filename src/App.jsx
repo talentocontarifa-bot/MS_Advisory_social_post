@@ -459,7 +459,7 @@ export default function App() {
                 </label>
                 <input 
                   type="range" 
-                  min="5" max="30" step="1"
+                  min="10" max="30" step="1"
                   value={logoScale} 
                   onChange={(e) => setLogoScale(Number(e.target.value))} 
                   style={{width: '100%', cursor: 'pointer', accentColor: 'var(--primary)'}} 
