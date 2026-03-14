@@ -541,9 +541,20 @@ export default function App() {
                   <img 
                     src={content.logo} 
                     alt="Logo" 
+                    onLoad={(e) => {
+                      if (logoRef.current) {
+                        setDims(prev => ({
+                          ...prev,
+                          logoW: logoRef.current.offsetWidth,
+                          logoH: logoRef.current.offsetHeight
+                        }));
+                      }
+                    }}
                     style={{ 
                       maxWidth: `${logoMaxWidth}px`, 
                       maxHeight: `${baseDim * 0.15}px`, 
+                      width: '100%',
+                      height: 'auto',
                       objectFit: 'contain',
                       display: 'block',
                       pointerEvents: 'none' // Prevent ghost drag
