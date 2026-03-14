@@ -75,7 +75,8 @@ export default function App() {
   const [content, setContent] = useState({
     title: 'Lanza Tu Próxima Gran Idea',
     description: 'Descubre cómo dominar el mercado con estrategias modernas y diseño excepcional. Únete a nuestra masterclass hoy mismo.',
-    logo: MS_LOGOS[2].src 
+    logo: MS_LOGOS[2].src,
+    signature: ''
   });
 
   const [activeLayout, setActiveLayout] = useState('modern-bottom');
@@ -85,6 +86,7 @@ export default function App() {
   
   const [logoScale, setLogoScale] = useState(15);
   const [logoColor, setLogoColor] = useState('original');
+  const [signatureScale, setSignatureScale] = useState(15);
   
   const [zoom, setZoom] = useState(0.4); 
 
@@ -93,10 +95,11 @@ export default function App() {
   // We apply layout "presets" which just overwrite X, Y coordinates, but user can manually move them later.
   const [positions, setPositions] = useState({
     logo: { x: 0, y: 0 },
+    signature: { x: 0, y: 0 },
     titleGroup: { x: 0, y: 0 } // Grouping text elements for easier layout logic
   });
   
-  const [dragState, setDragState] = useState(null); // 'logo' | 'titleGroup' | null
+  const [dragState, setDragState] = useState(null); // 'logo' | 'titleGroup' | 'signature' | null
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   
   // Smart Guides
@@ -105,9 +108,10 @@ export default function App() {
   const canvasRef = useRef(null);
   const contentRef = useRef(null);
 
-  const [dims, setDims] = useState({ titleW: 600, titleH: 300, logoW: 200, logoH: 100 });
+  const [dims, setDims] = useState({ titleW: 600, titleH: 300, logoW: 200, logoH: 100, signatureW: 200, signatureH: 100 });
   const titleGroupRef = useRef(null);
   const logoRef = useRef(null);
+  const signatureRef = useRef(null);
 
   // Measure element dimensions after render for proper boundary limiting
   useEffect(() => {
@@ -128,6 +132,7 @@ export default function App() {
   // strict boundaries
   const padding = baseDim * 0.085; 
   const logoMaxWidth = currentWidth * (logoScale / 100); 
+  const signatureMaxWidth = currentWidth * (signatureScale / 100);
   
   const titleSize = baseDim * 0.07;
   const descSize = baseDim * 0.035;
@@ -147,6 +152,7 @@ export default function App() {
     // We estimate width dynamically but can use rough values immediately before next tick gets perfect bounds.
     let logoX = padding, logoY = padding;
     let textX = padding, textY = currentHeight - padding - dims.titleH;
+    let sigX = currentWidth - padding - dims.signatureW, sigY = currentHeight - padding - dims.signatureH;
 
     switch(layoutPrefix) {
       case 'center':
@@ -154,29 +160,38 @@ export default function App() {
         logoY = currentHeight * 0.25;
         textX = currentWidth / 2 - dims.titleW / 2;
         textY = currentHeight * 0.45;
+        sigX = currentWidth / 2 - dims.signatureW / 2;
+        sigY = currentHeight - padding - dims.signatureH;
         break;
       case 'modern-bottom':
         logoX = currentWidth - padding - dims.logoW;
         logoY = padding;
         textX = padding;
         textY = currentHeight - padding - dims.titleH;
+        sigX = currentWidth - padding - dims.signatureW;
+        sigY = padding;
         break;
       case 'corporate-top':
         logoX = padding;
         logoY = padding;
         textX = padding;
         textY = padding + dims.logoH + padding;
+        sigX = currentWidth - padding - dims.signatureW;
+        sigY = currentHeight - padding - dims.signatureH;
         break;
       case 'editorial-split':
         logoX = padding;
         logoY = padding;
         textX = padding;
         textY = currentHeight / 2 - dims.titleH / 2;
+        sigX = currentWidth - padding - dims.signatureW;
+        sigY = padding;
         break;
     }
 
     setPositions({
       logo: { x: logoX, y: logoY },
+      signature: { x: sigX, y: sigY },
       titleGroup: { x: textX, y: textY }
     });
   };
@@ -268,8 +283,8 @@ export default function App() {
     let rawX = (e.clientX - canvasRect.left) / zoom - dragOffset.x;
     let rawY = (e.clientY - canvasRect.top) / zoom - dragOffset.y;
 
-    const elW = dragState === 'logo' ? dims.logoW : dims.titleW;
-    const elH = dragState === 'logo' ? dims.logoH : dims.titleH;
+    const elW = dragState === 'logo' ? dims.logoW : dragState === 'signature' ? dims.signatureW : dims.titleW;
+    const elH = dragState === 'logo' ? dims.logoH : dragState === 'signature' ? dims.signatureH : dims.titleH;
 
     let snapVX = null;
     let snapHY = null;
@@ -480,6 +495,42 @@ export default function App() {
                 </select>
               </div>
 
+              {/* NEW: Signature Section */}
+              <div className="input-group" style={{marginBottom: 0, marginTop: '16px'}}>
+                <label className="input-label" style={{color: 'var(--primary)'}}>Subir Firma (Opcional)</label>
+                <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                  <label className="btn btn-outline" style={{flex: 1, cursor: 'pointer', textAlign: 'center'}}>
+                    <Upload size={16} /> Subir Firma
+                    <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => setContent({...content, signature: event.target.result});
+                        reader.readAsDataURL(file);
+                      }
+                    }} />
+                  </label>
+                  {content.signature && (
+                    <button className="btn btn-ghost text-red-400" onClick={() => setContent({...content, signature: ''})}>Quitar</button>
+                  )}
+                </div>
+              </div>
+
+              {content.signature && (
+                <div className="input-group" style={{marginBottom: 0}}>
+                  <label className="input-label" style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                    <span>Tamaño de la Firma ({signatureScale}%)</span>
+                  </label>
+                  <input 
+                    type="range" 
+                    min="10" max="40" step="1"
+                    value={signatureScale} 
+                    onChange={(e) => setSignatureScale(Number(e.target.value))} 
+                    style={{width: '100%', cursor: 'pointer', accentColor: 'var(--primary)'}} 
+                  />
+                </div>
+              )}
+
             </div>
           </div>
         </aside>
@@ -615,6 +666,44 @@ export default function App() {
                       }} />
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* SIGNATURE NODE */}
+              {content.signature && (
+                <div
+                  ref={signatureRef}
+                  onMouseDown={(e) => startDrag(e, 'signature')}
+                  style={{
+                    position: 'absolute',
+                    left: positions.signature.x,
+                    top: positions.signature.y,
+                    cursor: dragState === 'signature' ? 'grabbing' : 'grab',
+                    zIndex: 10,
+                    outline: dragState === 'signature' ? '2px dashed var(--primary)' : 'none',
+                    width: `${signatureMaxWidth}px`
+                  }}
+                >
+                  <img 
+                    src={content.signature} 
+                    alt="Firma" 
+                    onLoad={(e) => {
+                      if (signatureRef.current) {
+                        setDims(prev => ({
+                          ...prev,
+                          signatureW: signatureRef.current.offsetWidth,
+                          signatureH: signatureRef.current.offsetHeight
+                        }));
+                      }
+                    }}
+                    style={{ 
+                      width: '100%',
+                      height: 'auto',
+                      objectFit: 'contain',
+                      display: 'block',
+                      pointerEvents: 'none'
+                    }} 
+                  />
                 </div>
               )}
 
