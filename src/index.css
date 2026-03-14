@@ -433,3 +433,7 @@ select.form-control option {
   box-shadow: var(--shadow-md);
   z-index: 10;
 }
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.spin-anim { animation: spin 1s linear infinite; }
+

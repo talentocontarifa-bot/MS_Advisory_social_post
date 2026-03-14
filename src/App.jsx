@@ -3,7 +3,7 @@ import {
   Instagram, Facebook, Linkedin, MonitorPlay, 
   Download, Image as ImageIcon, LayoutTemplate, 
   Type, Upload, Sparkles, AlignCenter, AlignLeft, 
-  PanelLeft, Columns, Palette, PenTool, Pointer
+  PanelLeft, Columns, Palette, Wand2, Pointer
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import './index.css';
@@ -223,24 +223,57 @@ export default function App() {
     }
   }, [activeFormat]);
 
-  // Spellchecker / AI Corrector function
-  const handleSpellCheck = () => {
-    const fixText = (text) => {
-      if (!text) return '';
-      // Capitalize first letter of every sentence and fix double spaces
-      return text
-        .replace(/\s+/g, ' ') // erase double spaces
-        .replace(/(^\w|\.\s+\w)/g, (l) => l.toUpperCase()) // First letters after dot
-        .trim();
-    };
+  const [isGenerating, setIsGenerating] = useState(false);
 
-    setContent({
-      ...content,
-      title: fixText(content.title),
-      description: fixText(content.description)
-    });
+  // Gemini AI / Brand Voice Text Assistant
+  const handleAIGenerate = async () => {
+    const topic = window.prompt("🤖 Redactor AI de MS Advisory\nDescribe brevemente de qué tratará la publicación (ej: Cierre fiscal de marzo, Protección patrimonial, etc.)");
+    if (!topic) return;
 
-    alert("¡Corrección aplicada! Se ajustaron mayúsculas, signos de puntuación y dobles espacios. (Asegúrate de revisar el texto).");
+    setIsGenerating(true);
+    try {
+      // 1. Send instruction to Gemini AI (acting as MS Consultoría Integral)
+      const promptText = `
+        Actúa como el Social Media Manager de "MS Consultoría Integral", una Firma en Inteligencia Fiscal Empresarial.
+        Tono de voz: Profesional, estratégico, preventivo y muy directo (ej: "Te leo como te lee el SAT").
+        Temática principal: Protección del patrimonio, crecimiento con cimientos estables, estrategias preventivas ante el SAT y evitar riesgos fiscales.
+        
+        Tu tarea: Escribe el texto para una imagen de publicación de redes sobre esta idea: "${topic}"
+        
+        Devuelve ÚNICAMENTE un objeto JSON estrictamente válido, sin texto adicional, con este formato:
+        {
+          "title": "TÍTULO CORTO Y DE IMPACTO AQUÍ",
+          "description": "2 a 3 líneas de descripción persuasiva o reflexiva, con el tono de MS Advisory."
+        }
+      `;
+
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + import.meta.env.VITE_GEMINI_API_KEY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }]
+        })
+      });
+
+      const data = await response.json();
+      const textResponse = data.candidates[0].content.parts[0].text;
+      
+      // Clean up markdown markers if any
+      const cleanJsonStr = textResponse.replace(/^```json/m, '').replace(/```$/m, '').trim();
+      const aiContent = JSON.parse(cleanJsonStr);
+
+      setContent({
+        ...content,
+        title: aiContent.title,
+        description: aiContent.description
+      });
+      
+    } catch (err) {
+      console.error(err);
+      alert("Hubo un error contactando a la IA. Verifica que tu LLM API Key (VITE_GEMINI_API_KEY) esté bien configurada en .env");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleExport = async () => {
@@ -372,8 +405,14 @@ export default function App() {
           <span style={{fontWeight: 800}}>PostGenius <span style={{fontSize: '12px', padding: '4px 8px', background: 'rgba(99, 102, 241, 0.2)', borderRadius: '6px', color: '#818cf8', marginLeft: '8px', verticalAlign: 'middle'}}>Smart AI</span></span>
         </div>
         <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
-          <button className="btn btn-outline" onClick={handleSpellCheck} style={{border: '1px solid rgba(255,255,255,0.3)'}}>
-             <PenTool size={18} /> Corrector Mágico
+          <button 
+            className="btn btn-outline" 
+            onClick={handleAIGenerate} 
+            disabled={isGenerating}
+            style={{border: '1px solid rgba(255,255,255,0.3)', position: 'relative', overflow: 'hidden'}}
+          >
+             <Wand2 size={18} className={isGenerating ? 'spin-anim' : ''} /> 
+             {isGenerating ? 'Generando MS Advisory...' : 'Redactor IA Mágico'}
           </button>
           <button className="btn btn-primary" onClick={handleExport} style={{padding: '12px 24px', fontSize: '16px'}}>
             <Download size={20} />
