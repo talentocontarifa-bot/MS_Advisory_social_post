@@ -152,8 +152,25 @@ export default function App() {
   const logoMaxWidth = currentWidth * (logoScale / 100); 
   const signatureMaxWidth = currentWidth * (signatureScale / 100);
   
-  const titleSize = baseDim * 0.07;
-  const descSize = baseDim * 0.035;
+  // Escala dinámica: Texto más corto = letra más grande para llenar el espacio
+  const getDynamicScale = (text, type) => {
+    const len = text ? text.length : 0;
+    if (type === 'title') {
+      if (len < 15) return 1.5;   // Muy corto
+      if (len < 30) return 1.25;  // Corto
+      if (len < 60) return 1.0;   // Normal
+      return 0.85;                // Largo
+    } else {
+      // description
+      if (len < 50) return 1.4;   // Muy corta
+      if (len < 100) return 1.15; // Corta
+      if (len < 200) return 0.95; // Normal
+      return 0.85;                // Larga
+    }
+  };
+
+  const titleSize = baseDim * 0.07 * getDynamicScale(content.title, 'title');
+  const descSize = baseDim * 0.035 * getDynamicScale(content.description, 'desc');
 
   // Formatting effect limits
   const safeMinX = padding;
